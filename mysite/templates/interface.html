@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recherche d'images</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Moteur de Recherche d'Images</h1>
+        </header>
+
+        <form method="post" enctype="multipart/form-data" action="{% url 'interface' %}">
+            {% csrf_token %}
+            <div class="content">
+                <div class="right-section">
+                    <div class="image-upload">
+                        <label for="image">Télécharger une image :</label>
+                        <input type="file" id="image" name="image" accept="image/*" onchange="previewImage(event)">
+                    </div>
+                    <div id="dimension-selection">
+                        <label for="dim-select">Dimension de l'espace couleur:</label>
+                        <select id="dim-select" name="dim-select">
+                            <option value="d1">1D</option>
+                            <option value="d3">3D</option>
+                            <option value="d4">4D</option>
+                        </select>
+                    </div>
+                    <div id="espace-selection">
+                        <div id="espace1D" class="hidden">
+                            <label for="espace-couleur-1D">Espace couleurs 1D :</label>
+                            <select id="espace-couleur-1D" name="espace-couleur-1D">
+                                <option value="index">IMAGE INDEXEE</option>
+                                <option value="grisUNI">GRIS UNIFORME</option>
+                                <option value="gris601">GRIS 601</option>
+                                <option value="gris709">GRIS 709</option>
+                            </select>
+                        </div>
+                        <div id="espace3D" class="hidden">
+                            <label for="espace-couleur-3D">Espace couleur 3D:</label>
+                            <select id="espace-couleur-3D" name="espace-couleur-3D">
+                                <option value="RGB">RGB</option>
+                                <option value="RGBnorm">RGB normalisé</option>
+                                <option value="YIQ">YIQ</option>
+                                <option value="YUV">YUV</option>
+                                <option value="I1I2I3">I1I2I3 </option>                        
+                                <option value="HSV">HSV</option>
+                                <option value="HSL">HSL</option>
+                                <option value="LAB">LAB</option>
+                                <option value="LUV">LUV</option>
+                                <option value="HSL">HSL</option>
+                            </select>
+                        </div>
+                        <div id="espace4D" class="hidden">
+                            <label for="espace-couleur-4D">Espace couleur 4D:</label>
+                            <select id="espace-couleur-4D" name="espace-couleur-4D">
+                                <option value="CMYK">CMYK</option>
+                            </select>
+                        </div>
+                        
+                    </div>
+
+
+                    <div class="descripteurC-selection">
+                        <label for="descripteur-couleur">Descripteur couleur:</label>
+                        <select id="descripteur-couleur" name="descripteur-couleur">
+                            <option value="Histogram">Histogramme</option>
+                            <option value="Stats-IMG">statistiques de l'image </option>
+                            <option value="Histogram-blob">Histogramme de blob</option>
+                        </select>
+
+                        <div id="switch-container-norm" class="hidden">
+                            <label for="switchInputNorm">Histogramme normalisé:</label>
+                            <label class="switch">
+                                <input type="checkbox" id="switchInputNorm" name="normalisé">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div id="switch-container-pond" class="hidden">
+                            <label for="switchInputPond">Histogramme pondéré:</label>
+                            <label class="switch">
+                                <input type="checkbox" id="switchInputPond" name="pondéré">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="descripteurF-selection">
+                        <label for="descripteur-forme">Descripteur forme:</label>
+                        <select id="descripteur-forme" name="descripteur-forme">
+                            <option value="Histogram-gradient">Histogramme de gradient</option>
+                        </select>
+                    </div>
+                    
+                    <div class="distance-selection">
+                        <label for="distance">Méthode de distance :</label>
+                        <select id="distance" name="distance">
+                            <option value="manhattan">Manhattan</option>
+                            <option value="euclidienne">Euclidienne</option>
+                            <option value="tchebychev">Tchebychev</option>
+                            <option value="intersectionX">Intersection X</option>
+                            <option value="intersectionY">Intersection Y</option>
+                            <option value="khi2">Khi2</option>
+                            <option value="minkowski">Minkowski</option>
+                        </select>
+                    </div>
+
+                    <div class="controls">
+                        <label for="num-results">Nombre de résultats :</label>
+                        <input type="number" id="num-results" name="num-results" min="1" value="5">                      
+                            
+                    </div>
+                    <button type="submit">Rechercher</button>
+                </div>
+
+                <div class="left-section">
+                    <div class="image-preview">
+                        <h2>Image choisie :</h2>
+                        <img id="chosen-image" src="#" alt="Votre image" style="display:none;">
+                    </div>
+                </div>
+            </div>
+        </form>
+        {% if erreur_image %}
+            <p class="erreur_image">{{ erreur_image }}</p>
+        {% endif %}
+        <!-- Section affichage des résultats -->
+        <div class="image-gallery">
+            <h2>Images affichées :</h2>
+
+            <div class="gallery-grid" id="results">
+                <div id="spinner" class="spinner"></div>
+                {% for img in images_triees %}
+                    <img src="{{ img }}" alt="Image affichée" style="max-width: 100px; margin: 5px;">
+                {% endfor %}*
+                
+            </div>
+        </div>
+    </div>
+    <div id="error-message" style="display:none; color:red; font-weight:bold;"></div>
+
+    <script>
+        function previewImage(event) {
+            const reader = new FileReader();
+            const imageField = document.getElementById("chosen-image");
+
+            reader.onload = function() {
+                if (reader.readyState === 2) {
+                    imageField.src = reader.result;
+                    imageField.style.width = "300px"; 
+                    imageField.style.height = "auto"; 
+                    imageField.style.display = "block";
+                }
+            };
+
+            reader.readAsDataURL(event.target.files[0]);
+        }
+        const dimensionSelect = document.getElementById('dim-select');
+
+        // Écouteur d'événements pour le premier select
+        dimensionSelect.addEventListener('change', function () {
+            if (dimensionSelect.value === 'd1') {
+                document.getElementById('espace1D').classList.remove('hidden');
+                document.getElementById('espace3D').classList.add('hidden');
+                document.getElementById('espace4D').classList.add('hidden'); 
+            } else if(dimensionSelect.value === 'd3') {
+                document.getElementById('espace3D').classList.remove('hidden');
+                document.getElementById('espace1D').classList.add('hidden');
+                document.getElementById('espace4D').classList.add('hidden');    
+            } else if(dimensionSelect.value === 'd4'){
+                document.getElementById('espace4D').classList.remove('hidden');
+                document.getElementById('espace1D').classList.add('hidden');
+                document.getElementById('espace3D').classList.add('hidden'); 
+            }
+        });
+        const selectElement = document.getElementById('descripteur-couleur');
+        const switchContainer = document.getElementById('switch-container');
+
+        // Ajouter un écouteur d'événement à la liste déroulante
+        selectElement.addEventListener('change', function () {
+            // Si l'option "C" est sélectionnée, afficher le switch
+            if (selectElement.value === 'Histogram' ) {
+                switchContainer.classList.remove('hidden');  // Afficher le switch
+            } else {
+                switchContainer.classList.add('hidden');    // Cacher le switch
+            }
+        });
+        const form = document.querySelector('form');
+        const resultsContainer = document.getElementById("results");
+        const spinner = document.getElementById("spinner");
+        const errorMessage = document.getElementById("error-message");
+
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();  // Empêche le rechargement de la page
+        
+            const formData = new FormData(form);
+        
+            // Affiche le spinner et cache les résultats et les erreurs précédentes
+            spinner.style.display = 'block';
+            resultsContainer.innerHTML = '';  // Vide les anciens résultats
+            errorMessage.style.display = 'none';  // Cache l'ancien message d'erreur
+        
+            // Envoie la requête AJAX
+            fetch("{% url 'interface' %}", {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'  // Ajoute le token CSRF
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Cache le spinner après un délai (ou immédiatement si tu n'as pas besoin de délai)
+                spinner.style.display = 'none';
+            
+                if (data.images) {
+                    updateResults(data.images);  // Met à jour les résultats
+                } else if (data.error) {
+                    displayError(data.error);  // Affiche l'erreur si présente
+                }
+            })
+            .catch(error => {
+                spinner.style.display = 'none';  // Cache le spinner en cas d'échec
+                displayError('Erreur lors du chargement des images. Veuillez réessayer.');  // Message d'erreur générique
+                console.error('Erreur:', error);
+            });
+        });
+
+        // Fonction pour mettre à jour l'affichage des résultats
+        function updateResults(images) {
+            resultsContainer.innerHTML = '';  // Efface les résultats précédents
+            images.forEach(imageUrl => {
+                const img = document.createElement('img');
+                img.src = imageUrl;
+                img.alt = 'Image affichée';
+                img.style.maxWidth = '100px';
+                img.style.margin = '5px';
+                resultsContainer.appendChild(img);
+            });
+        }
+
+        // Fonction pour afficher un message d'erreur
+        function displayError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+
+
+    </script>
+</body>
+</html>
